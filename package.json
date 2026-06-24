@@ -1,6 +1,6 @@
 {
   "name": "milestone-timeline",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Project milestone timeline React component",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -41,6 +41,15 @@
   "bugs": {
     "url": "https://github.com/rlaks5757/milestone-timeline/issues"
   },
-  "keywords": ["react", "milestone", "timeline", "gantt", "schedule", "svg", "chart", "project-management"],
+  "keywords": [
+    "react",
+    "milestone",
+    "timeline",
+    "gantt",
+    "schedule",
+    "svg",
+    "chart",
+    "project-management"
+  ],
   "license": "MIT"
 }
