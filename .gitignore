@@ -1,6 +1,5 @@
 node_modules/
 dist/
-test-app/node_modules/
-test-app/dist/
+test-app/
 *.log
 .DS_Store
