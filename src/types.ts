@@ -12,3 +12,20 @@ export interface LayoutConfig {
   laneStep?: number    // default 64
   topPad?: number      // default 24
 }
+
+export interface MilestoneLabels {
+  title?: string
+  early?: string
+  ontime?: string
+  delayed?: string
+  upcoming?: string
+  planDate?: string
+  actualDate?: string
+  delay?: string
+  planLabel?: string
+  actualLabel?: string
+  noData?: string
+  earlyFmt?: (days: number) => string
+  delayedFmt?: (days: number) => string
+  noDelay?: string
+}
