@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import type { MilestoneItem, LayoutConfig } from './types'
+import type { MilestoneItem, LayoutConfig, MilestoneLabels } from './types'
 import './MilestoneTimeline.css'
 
 // ─── 날짜 파싱 ───────────────────────────────────────────────────────────────
 
-// "2022년 12월" / "2024.01.15" / ISO datetime → Date
 function parseFlexDate(str: string | null | undefined): Date | null {
   if (!str) return null
   const s = str.trim()
@@ -17,16 +16,49 @@ function parseFlexDate(str: string | null | undefined): Date | null {
   return isNaN(d.getTime()) ? null : d
 }
 
-// ─── 날짜 포맷 헬퍼 ──────────────────────────────────────────────────────────
-
 function defaultFormatDate(d: Date | null): string {
   if (!d) return '—'
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// TODAY 배지용 로컬 날짜 포맷 (date-fns 제거)
 function fmtLocalDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// ─── i18n 레이블 ─────────────────────────────────────────────────────────────
+
+const KO_LABELS: Required<MilestoneLabels> = {
+  title: '',
+  early: '조기',
+  ontime: '정시',
+  delayed: '지연',
+  upcoming: '예정',
+  planDate: '계획일',
+  actualDate: '실적일',
+  delay: '지연',
+  planLabel: '계획',
+  actualLabel: '실적',
+  noData: '마일스톤 데이터가 없습니다.',
+  earlyFmt: (d) => `조기 -${d}일`,
+  delayedFmt: (d) => `지연 +${d}일`,
+  noDelay: '없음',
+}
+
+const EN_LABELS: Required<MilestoneLabels> = {
+  title: '',
+  early: 'Early',
+  ontime: 'On-time',
+  delayed: 'Delayed',
+  upcoming: 'Upcoming',
+  planDate: 'Plan Date',
+  actualDate: 'Actual Date',
+  delay: 'Delay',
+  planLabel: 'Plan',
+  actualLabel: 'Actual',
+  noData: 'No milestone data.',
+  earlyFmt: (d) => `Early -${d}d`,
+  delayedFmt: (d) => `Delayed +${d}d`,
+  noDelay: 'None',
 }
 
 // ─── 마일스톤 상태 ────────────────────────────────────────────────────────────
@@ -44,11 +76,12 @@ function getMsState(planDate: Date | null, actualDate: Date | null, today: Date)
   return 'ontime'
 }
 
+// 시각적 스타일만 (레이블 제거)
 const MS_STYLE = {
-  ontime: { markerFill: '#2b3240', markerBorder: '#2b3240', titleColor: '#2b3240', actualColor: '#2b3240', legendLabel: '정시', tooltipStatus: '정시', tooltipBg: '#edf4fc', tooltipFg: '#2b3240' },
-  early: { markerFill: '#ffffff', markerBorder: '#1f8a5b', titleColor: '#1f8a5b', actualColor: '#1f8a5b', legendLabel: '조기', tooltipStatus: '조기', tooltipBg: '#e6f5ee', tooltipFg: '#1f8a5b' },
-  delayed: { markerFill: '#ffffff', markerBorder: '#e5484d', titleColor: '#e5484d', actualColor: '#e5484d', legendLabel: '지연', tooltipStatus: '지연', tooltipBg: '#ffe1e2', tooltipFg: '#e5484d' },
-  upcoming: { markerFill: '#aeb6c2', markerBorder: '#aeb6c2', titleColor: '#3a4250', actualColor: '#8a94a6', legendLabel: '예정', tooltipStatus: '예정', tooltipBg: '#f3f4f6', tooltipFg: '#6b7488' },
+  ontime:  { markerFill: '#2b3240', markerBorder: '#2b3240', titleColor: '#2b3240', actualColor: '#2b3240', tooltipBg: '#edf4fc', tooltipFg: '#2b3240' },
+  early:   { markerFill: '#ffffff', markerBorder: '#1f8a5b', titleColor: '#1f8a5b', actualColor: '#1f8a5b', tooltipBg: '#e6f5ee', tooltipFg: '#1f8a5b' },
+  delayed: { markerFill: '#ffffff', markerBorder: '#e5484d', titleColor: '#e5484d', actualColor: '#e5484d', tooltipBg: '#ffe1e2', tooltipFg: '#e5484d' },
+  upcoming:{ markerFill: '#aeb6c2', markerBorder: '#aeb6c2', titleColor: '#3a4250', actualColor: '#8a94a6', tooltipBg: '#f3f4f6', tooltipFg: '#6b7488' },
 }
 
 // ─── PlacedMs 타입 ────────────────────────────────────────────────────────────
@@ -68,7 +101,6 @@ interface PlacedMs {
 
 // ─── 레인 패킹 레이아웃 ──────────────────────────────────────────────────────
 
-// chip center 기준 레인 패킹 (밀집·중복 처리)
 function layoutLanes(
   items: { m: MilestoneItem; planDate: Date | null; actualDate: Date | null; delayDays: number; state: MsState; pct: number }[],
   containerW: number,
@@ -108,22 +140,27 @@ function layoutLanes(
 
 interface MilestoneTimelineProps {
   milestones: MilestoneItem[]
+  locale?: 'ko' | 'en'
+  labels?: Partial<MilestoneLabels>
   formatDate?: (date: Date | null) => string
   layout?: LayoutConfig
 }
 
 // ─── MilestoneTimeline 컴포넌트 ───────────────────────────────────────────────
 
-export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneTimelineProps) {
+export function MilestoneTimeline({ milestones, locale = 'ko', labels, formatDate, layout }: MilestoneTimelineProps) {
   const fmt = formatDate ?? defaultFormatDate
+  const L: Required<MilestoneLabels> = { ...(locale === 'en' ? EN_LABELS : KO_LABELS), ...labels }
 
-  // layout 상수: prop으로 오버라이드 가능, 기본값은 원본과 동일
   const CARD_W = layout?.cardWidth ?? 132
   const CARD_HALF = CARD_W / 2
   const CARD_H = layout?.cardHeight ?? 58
   const LANE_GAP = layout?.laneGap ?? 12
   const LANE_STEP = layout?.laneStep ?? 64
   const TOP_PAD = layout?.topPad ?? 24
+  const legendPos = layout?.legendPosition ?? 'top-right'
+  const legendAtBottom = legendPos.startsWith('bottom')
+  const legendAlign = legendPos.endsWith('right') ? 'flex-end' : 'flex-start'
 
   const data = milestones.length > 0 ? milestones : []
   const containerRef = useRef<HTMLDivElement>(null)
@@ -148,7 +185,6 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // 실적 있으면 actual-plan, 없고 계획일 지났으면 today-plan (미완료 지연)
   function resolveDelayDays(m: MilestoneItem, planDate: Date | null, actualDate: Date | null): number {
     if (actualDate && planDate) {
       return Math.round((actualDate.getTime() - planDate.getTime()) / 86400_000)
@@ -181,7 +217,6 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
     return Math.max(1, Math.min(99, ((d.getTime() - axisStart) / axisRange) * 100))
   }
 
-  // 기간: 계획일 + 실적일 전체에서 min ~ max
   const allDates = withDates.flatMap(x => [x.planDate, x.actualDate]).filter((d): d is Date => !!d)
   const rangeStart = allDates.length ? fmt(new Date(Math.min(...allDates.map(d => d.getTime())))) : ''
   const rangeEnd = allDates.length ? fmt(new Date(Math.max(...allDates.map(d => d.getTime())))) : ''
@@ -202,52 +237,60 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
     return axisY + LANE_GAP + p.lane * LANE_STEP
   }
 
-  // 오늘이 마일스톤 실제 기간(minT~maxT) 안에 있을 때만 표시
   const todayInRange = times.length > 0 && today.getTime() >= minT && today.getTime() <= maxT
   const todayPct = todayInRange ? getPos(today) : -1
   const todayX = todayInRange ? (todayPct / 100) * cw : -1
-  // 배지 중심을 [BADGE_HALF, cw-BADGE_HALF] 안으로 clamp (수직선은 todayX 그대로)
   const BADGE_HALF = 72
   const todayBadgeX = todayX >= 0 ? Math.max(BADGE_HALF, Math.min(todayX, cw - BADGE_HALF)) : -1
+
+  // 범례 순서: 조기/early → 지연/delayed → 정시/ontime → 예정/upcoming
+  const LEGEND_ORDER: MsState[] = ['early', 'delayed', 'ontime', 'upcoming']
+  const legendLabel: Record<MsState, string> = {
+    early: L.early,
+    ontime: L.ontime,
+    delayed: L.delayed,
+    upcoming: L.upcoming,
+  }
+
+  const legendNode = (
+    <div className="mst__header" style={{ justifyContent: legendAlign }}>
+      {L.title && <h3 className="mst__title">{L.title}</h3>}
+      <div className="mst__legendRow">
+        <div className="mst__legendList">
+          {LEGEND_ORDER.map((state) => {
+            const s = MS_STYLE[state]
+            return (
+              <div key={state} className="mst__legendItem">
+                <span style={{
+                  width: 11, height: 11, borderRadius: '50%', boxSizing: 'border-box',
+                  background: s.markerFill, border: `2.5px solid ${s.markerBorder}`,
+                  display: 'inline-block', flexShrink: 0,
+                }} />
+                <span className="mst__legendLabel">{legendLabel[state]}</span>
+              </div>
+            )
+          })}
+        </div>
+        {(rangeStart || rangeEnd) && (
+          <span className="mst__rangeText">
+            {rangeStart} ~ {rangeEnd}
+          </span>
+        )}
+      </div>
+    </div>
+  )
 
   return (
     <>
       <div className="mst__card">
-        <div className="mst__header">
-          <h3 className="mst__title">Project Milestone</h3>
-          <div className="mst__legendRow">
-            {/* 범례: 원형 도트, 조기/지연/정시/예정 순 */}
-            <div className="mst__legendList">
-              {(['early', 'delayed', 'ontime', 'upcoming'] as MsState[]).map((state) => {
-                const s = MS_STYLE[state]
-                return (
-                  <div key={state} className="mst__legendItem">
-                    <span style={{
-                      width: 11, height: 11, borderRadius: '50%', boxSizing: 'border-box',
-                      background: s.markerFill, border: `2.5px solid ${s.markerBorder}`,
-                      display: 'inline-block', flexShrink: 0,
-                    }} />
-                    <span className="mst__legendLabel">{s.legendLabel}</span>
-                  </div>
-                )
-              })}
-            </div>
-            {/* 기간: 계획/실적 전체 min ~ max */}
-            {(rangeStart || rangeEnd) && (
-              <span className="mst__rangeText">
-                {rangeStart} ~ {rangeEnd}
-              </span>
-            )}
-          </div>
-        </div>
+        {!legendAtBottom && legendNode}
         <div className="mst__scrollArea">
           <div className="mst__inner">
             <div ref={containerRef} className="mst__timelineWrap" style={{ height: sorted.length ? totalH : undefined }}>
               {sorted.length === 0 ? (
-                <p className="mst__noData">마일스톤 데이터가 없습니다.</p>
+                <p className="mst__noData">{L.noData}</p>
               ) : (
                 <>
-                  {/* Today pill badge — 차트 맨 위 */}
                   {todayPct > 0 && todayPct < 100 && (
                     <div style={{
                       position: 'absolute', left: todayBadgeX, top: 4,
@@ -263,13 +306,7 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
                     </div>
                   )}
 
-                  {/* 축 라인 + polyline L자형 스템 + Today 점선 */}
-                  <svg
-                    className="mst__svg"
-                    width={cw}
-                    height={totalH}
-                  >
-                    {/* Today 점선 */}
+                  <svg className="mst__svg" width={cw} height={totalH}>
                     {todayPct > 0 && todayPct < 100 && (
                       <line
                         x1={todayX} y1={0} x2={todayX} y2={totalH - 12}
@@ -280,7 +317,6 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
                     {placed.map((p, i) => {
                       const cardTop = getCardTop(p)
                       const isAbove = p.side === 'above'
-                      // 카드 실제 높이가 CARD_H보다 작을 수 있으므로 카드 중앙까지 connector 연장
                       const cardEdge = cardTop + Math.round(CARD_H / 2)
                       const midY = isAbove ? axisY - Math.floor(LANE_GAP / 2) : axisY + Math.floor(LANE_GAP / 2)
                       const pts = `${p.x},${axisY} ${p.x},${midY} ${p.cx},${midY} ${p.cx},${cardEdge}`
@@ -296,7 +332,6 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
                     })}
                   </svg>
 
-                  {/* 원형 마커 */}
                   {placed.map((p, i) => {
                     const s = MS_STYLE[p.state]
                     return (
@@ -317,7 +352,6 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
                     )
                   })}
 
-                  {/* 컴팩트 카드 */}
                   {placed.map((p, i) => {
                     const s = MS_STYLE[p.state]
                     const cardTop = getCardTop(p)
@@ -361,9 +395,9 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
                           {p.m.MilestoneName}
                         </p>
                         <div style={{ marginTop: 2, fontSize: '0.714rem', color: 'var(--c-text-muted, #64748b)', lineHeight: 1.36, textAlign: 'center' }}>
-                          <div>계획: {fmt(p.planDate)}</div>
+                          <div>{L.planLabel}: {fmt(p.planDate)}</div>
                           {p.actualDate && (
-                            <div style={{ color: s.actualColor }}>실적: {fmt(p.actualDate)}</div>
+                            <div style={{ color: s.actualColor }}>{L.actualLabel}: {fmt(p.actualDate)}</div>
                           )}
                         </div>
                       </div>
@@ -374,36 +408,31 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
             </div>
           </div>
         </div>
+        {legendAtBottom && legendNode}
       </div>
 
-      {/* 포털 툴팁 — overflow 컨테이너 밖, position: fixed */}
       {tooltipData && createPortal(
         (() => {
           const { p, anchorX, anchorY, above } = tooltipData
           const s = MS_STYLE[p.state]
           const days = p.delayDays
           const delayValue = p.state === 'early'
-            ? `조기 -${Math.abs(days)}일`
+            ? L.earlyFmt(Math.abs(days))
             : p.state === 'delayed'
-              ? `지연 +${days}일`
-              : '없음'
+              ? L.delayedFmt(days)
+              : L.noDelay
 
           const TW = 212, TH = 182, GAP = 10, MARGIN = 8
           const vw = window.innerWidth, vh = window.innerHeight
 
-          // 위/아래 표시 결정: 원하는 방향이 뷰포트를 벗어나면 반전
           let showAbove = above
           if (showAbove && anchorY - TH - GAP < MARGIN) showAbove = false
           if (!showAbove && anchorY + TH + GAP > vh - MARGIN) showAbove = true
 
           const rawTop = showAbove ? anchorY - TH - GAP : anchorY + GAP
           const finalTop = Math.max(MARGIN, Math.min(vh - TH - MARGIN, rawTop))
-
-          // 수평 클램핑
           const rawLeft = anchorX - TW / 2
           const finalLeft = Math.max(MARGIN, Math.min(vw - TW - MARGIN, rawLeft))
-
-          // 화살표 수평 위치 (툴팁 기준)
           const arrowLeft = Math.max(16, Math.min(TW - 16, anchorX - finalLeft))
 
           return (
@@ -425,9 +454,9 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
               </p>
               <div style={{ height: 1, background: 'var(--c-border-2, #f1f5f9)', marginBottom: 4 }} />
               {([
-                { label: '계획일', value: fmt(p.planDate), valueColor: 'var(--c-text, #1e293b)' },
-                { label: '실적일', value: fmt(p.actualDate), valueColor: s.actualColor },
-                { label: '지연', value: delayValue, valueColor: s.tooltipFg },
+                { label: L.planDate,   value: fmt(p.planDate),   valueColor: 'var(--c-text, #1e293b)' },
+                { label: L.actualDate, value: fmt(p.actualDate), valueColor: s.actualColor },
+                { label: L.delay,      value: delayValue,         valueColor: s.tooltipFg },
               ] as { label: string; value: string; valueColor: string }[]).map(({ label, value, valueColor }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 18, padding: '4px 0' }}>
                   <span style={{ fontSize: '0.786rem', color: 'var(--c-text-muted, #64748b)', fontWeight: 600 }}>{label}</span>
@@ -435,12 +464,11 @@ export function MilestoneTimeline({ milestones, formatDate, layout }: MilestoneT
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, marginTop: 4, borderTop: '1px solid var(--c-border-2, #f1f5f9)' }}>
-                <span style={{ fontSize: '0.786rem', color: 'var(--c-text-muted, #64748b)', fontWeight: 600 }}>상태</span>
+                <span style={{ fontSize: '0.786rem', color: 'var(--c-text-muted, #64748b)', fontWeight: 600 }}>{locale === 'en' ? 'Status' : '상태'}</span>
                 <span style={{ fontSize: '0.786rem', fontWeight: 700, color: s.tooltipFg, background: s.tooltipBg, padding: '2px 9px', borderRadius: 999 }}>
-                  {s.tooltipStatus}
+                  {legendLabel[p.state]}
                 </span>
               </div>
-              {/* 화살표 — 툴팁이 위면 아래쪽에, 아래면 위쪽에 */}
               <div style={{
                 position: 'absolute', left: arrowLeft,
                 ...(showAbove ? { bottom: -6 } : { top: -6 }),
