@@ -11,6 +11,7 @@ export interface LayoutConfig {
   laneGap?: number     // default 12
   laneStep?: number    // default 64
   topPad?: number      // default 24
+  legendPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'  // default 'top-right'
 }
 
 export interface MilestoneLabels {

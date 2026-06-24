@@ -28,7 +28,7 @@ function fmtLocalDate(d: Date): string {
 // ─── i18n 레이블 ─────────────────────────────────────────────────────────────
 
 const KO_LABELS: Required<MilestoneLabels> = {
-  title: 'Project Milestone',
+  title: '',
   early: '조기',
   ontime: '정시',
   delayed: '지연',
@@ -45,7 +45,7 @@ const KO_LABELS: Required<MilestoneLabels> = {
 }
 
 const EN_LABELS: Required<MilestoneLabels> = {
-  title: 'Project Milestone',
+  title: '',
   early: 'Early',
   ontime: 'On-time',
   delayed: 'Delayed',
@@ -158,6 +158,9 @@ export function MilestoneTimeline({ milestones, locale = 'ko', labels, formatDat
   const LANE_GAP = layout?.laneGap ?? 12
   const LANE_STEP = layout?.laneStep ?? 64
   const TOP_PAD = layout?.topPad ?? 24
+  const legendPos = layout?.legendPosition ?? 'top-right'
+  const legendAtBottom = legendPos.startsWith('bottom')
+  const legendAlign = legendPos.endsWith('right') ? 'flex-end' : 'flex-start'
 
   const data = milestones.length > 0 ? milestones : []
   const containerRef = useRef<HTMLDivElement>(null)
@@ -249,34 +252,38 @@ export function MilestoneTimeline({ milestones, locale = 'ko', labels, formatDat
     upcoming: L.upcoming,
   }
 
+  const legendNode = (
+    <div className="mst__header" style={{ justifyContent: legendAlign }}>
+      {L.title && <h3 className="mst__title">{L.title}</h3>}
+      <div className="mst__legendRow">
+        <div className="mst__legendList">
+          {LEGEND_ORDER.map((state) => {
+            const s = MS_STYLE[state]
+            return (
+              <div key={state} className="mst__legendItem">
+                <span style={{
+                  width: 11, height: 11, borderRadius: '50%', boxSizing: 'border-box',
+                  background: s.markerFill, border: `2.5px solid ${s.markerBorder}`,
+                  display: 'inline-block', flexShrink: 0,
+                }} />
+                <span className="mst__legendLabel">{legendLabel[state]}</span>
+              </div>
+            )
+          })}
+        </div>
+        {(rangeStart || rangeEnd) && (
+          <span className="mst__rangeText">
+            {rangeStart} ~ {rangeEnd}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <>
       <div className="mst__card">
-        <div className="mst__header">
-          <h3 className="mst__title">{L.title}</h3>
-          <div className="mst__legendRow">
-            <div className="mst__legendList">
-              {LEGEND_ORDER.map((state) => {
-                const s = MS_STYLE[state]
-                return (
-                  <div key={state} className="mst__legendItem">
-                    <span style={{
-                      width: 11, height: 11, borderRadius: '50%', boxSizing: 'border-box',
-                      background: s.markerFill, border: `2.5px solid ${s.markerBorder}`,
-                      display: 'inline-block', flexShrink: 0,
-                    }} />
-                    <span className="mst__legendLabel">{legendLabel[state]}</span>
-                  </div>
-                )
-              })}
-            </div>
-            {(rangeStart || rangeEnd) && (
-              <span className="mst__rangeText">
-                {rangeStart} ~ {rangeEnd}
-              </span>
-            )}
-          </div>
-        </div>
+        {!legendAtBottom && legendNode}
         <div className="mst__scrollArea">
           <div className="mst__inner">
             <div ref={containerRef} className="mst__timelineWrap" style={{ height: sorted.length ? totalH : undefined }}>
@@ -401,6 +408,7 @@ export function MilestoneTimeline({ milestones, locale = 'ko', labels, formatDat
             </div>
           </div>
         </div>
+        {legendAtBottom && legendNode}
       </div>
 
       {tooltipData && createPortal(
