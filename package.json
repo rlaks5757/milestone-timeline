@@ -41,5 +41,6 @@
   "bugs": {
     "url": "https://github.com/rlaks5757/milestone-timeline/issues"
   },
+  "keywords": ["react", "milestone", "timeline", "gantt", "schedule", "svg", "chart", "project-management"],
   "license": "MIT"
 }
