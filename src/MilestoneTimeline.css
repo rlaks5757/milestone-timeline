@@ -1,0 +1,79 @@
+.mst__card {
+  padding: 1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border, #e2e8f0);
+  border-radius: 0.5rem;
+  background: var(--c-surface, #ffffff);
+  box-sizing: border-box;
+}
+.mst__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.mst__title {
+  font-size: 1rem;
+  font-weight: 600;
+  flex-shrink: 0;
+  color: var(--c-text, #1e293b);
+  margin: 0;
+}
+.mst__legendRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.mst__legendList {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.mst__legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.mst__legendLabel {
+  font-size: 0.786rem;
+  color: var(--c-text-muted, #64748b);
+  font-weight: 600;
+}
+.mst__rangeText {
+  font-size: 0.786rem;
+  color: var(--c-text-muted, #64748b);
+  font-family: monospace;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mst__scrollArea {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.mst__inner {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+.mst__timelineWrap {
+  position: relative;
+  width: 100%;
+}
+.mst__noData {
+  font-size: 0.75rem;
+  color: var(--c-text-muted, #64748b);
+}
+.mst__svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
